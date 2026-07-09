@@ -12,8 +12,8 @@ public class KeycloakAdminConfig {
     @Value("${keycloak.server-url}")
     private String serverUrl;
 
-    @Value("${keycloak.realm}")
-    private String realm;
+    @Value("${keycloak.master-realm}")
+    private String masterRealm;
 
     @Value("${keycloak.admin.client-id}")
     private String clientId;
@@ -28,15 +28,10 @@ public class KeycloakAdminConfig {
     public Keycloak keycloakAdminClient() {
         return KeycloakBuilder.builder()
                 .serverUrl(serverUrl)
-                .realm("master")
+                .realm(masterRealm)
                 .clientId(clientId)
                 .username(adminUsername)
                 .password(adminPassword)
                 .build();
-    }
-
-    @Bean
-    public String keycloakRealm() {
-        return realm;
     }
 }

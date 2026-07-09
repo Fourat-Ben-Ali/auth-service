@@ -7,7 +7,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "app_users")
+@Table(name = "app_users", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"enterprise_id", "username"}),
+        @UniqueConstraint(columnNames = {"enterprise_id", "email"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,13 +22,16 @@ public class AppUser extends TenantAware {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Keycloak's own id is globally unique regardless of which realm issued it.
     @Column(name = "keycloak_id", unique = true, nullable = false)
     private String keycloakId;
 
-    @Column(unique = true, nullable = false)
+    // Only unique within an enterprise — two different enterprises (realms)
+    // may each have their own "admin" without colliding.
+    @Column(nullable = false)
     private String username;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String email;
 
     @Column(name = "first_name")

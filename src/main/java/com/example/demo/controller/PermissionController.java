@@ -19,20 +19,21 @@ public class PermissionController {
 
     private final PermissionService permissionService;
 
+    // Permissions are platform-owned — same reasoning as roles.
     @PostMapping
-    @PreAuthorize("hasAuthority('PERMISSION_CREATE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<PermissionResponse> create(@Valid @RequestBody PermissionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(permissionService.create(request));
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('PERMISSION_READ') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('PERMISSION_READ') or hasRole('SUPER_ADMIN') or hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<List<PermissionResponse>> findAll() {
         return ResponseEntity.ok(permissionService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('PERMISSION_READ') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('PERMISSION_READ') or hasRole('SUPER_ADMIN') or hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<PermissionResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(permissionService.findById(id));
     }

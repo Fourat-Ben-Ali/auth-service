@@ -9,7 +9,10 @@ public record UserRequest(
         @NotBlank String username,
         @NotBlank @Email String email,
         @NotBlank @Size(min = 8) String password,
-        String firstName,
-        String lastName,
+        // Keycloak's default user profile requires both — a user created
+        // without them can never actually log in ("Account is not fully
+        // set up"), so this isn't optional in practice.
+        @NotBlank String firstName,
+        @NotBlank String lastName,
         @NotNull Long enterpriseId
 ) {}

@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
@@ -47,7 +47,11 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       KEYCLOAK_SERVER_URL: http://keyclock:8080
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keyclock:8080/realms/workforce-os
+      KEYCLOAK_MASTER_REALM: master
+      # Only resolves if this compose project shares a network with the
+      # platform's eureka-server (compose.services.d/infra.yaml) — this
+      # file's own "spring-demo" network is isolated from it today.
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
     depends_on:
       postgres:
         condition: service_healthy

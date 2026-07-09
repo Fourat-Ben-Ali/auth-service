@@ -20,19 +20,19 @@ public class EnterpriseController {
     private final EnterpriseService enterpriseService;
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<EnterpriseResponse> create(@Valid @RequestBody EnterpriseRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(enterpriseService.create(request));
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<List<EnterpriseResponse>> findAll() {
         return ResponseEntity.ok(enterpriseService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<EnterpriseResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(enterpriseService.findById(id));
     }

@@ -2,6 +2,7 @@ package com.example.demo.config;
 
 import com.example.demo.service.UserAuthorityService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,6 +24,12 @@ import java.util.stream.Stream;
 @Component
 @RequiredArgsConstructor
 public class KeyckloackJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
+
+    @Value("${keycloak.server-url}")
+    private String serverUrl;
+
+    @Value("${keycloak.master-realm}")
+    private String masterRealm;
 
     private final UserAuthorityService userAuthorityService;
 
@@ -35,10 +43,24 @@ public class KeyckloackJwtAuthenticationConverter implements Converter<Jwt, Abst
                 extractResourceRoles(source)
         ).flatMap(Collection::stream).collect(Collectors.toSet());
 
-        Collection<GrantedAuthority> all = Stream.concat(dbAuthorities.stream(), keycloakAuthorities.stream())
-                .collect(Collectors.toSet());
+        Collection<GrantedAuthority> all = new HashSet<>();
+        all.addAll(dbAuthorities);
+        all.addAll(keycloakAuthorities);
+
+        // Tokens issued by the master realm come from a platform super admin —
+        // grant a distinct authority so tenant super admins can't reach
+        // platform-only endpoints (e.g. creating enterprises) just by also
+        // holding a SUPER_ADMIN role in their own realm.
+        if (isMasterRealmIssuer(source)) {
+            all.add(new SimpleGrantedAuthority("ROLE_PLATFORM_SUPER_ADMIN"));
+        }
 
         return new JwtAuthenticationToken(source, all);
+    }
+
+    private boolean isMasterRealmIssuer(Jwt jwt) {
+        Object issuer = jwt.getClaim("iss");
+        return issuer != null && issuer.toString().equals(serverUrl + "/realms/" + masterRealm);
     }
 
     // realm_access.roles → ROLE_SUPER_ADMIN, etc.

@@ -7,6 +7,7 @@ import com.example.demo.entity.Permission;
 import com.example.demo.entity.Role;
 import com.example.demo.exception.ConflictException;
 import com.example.demo.exception.NotFoundException;
+import com.example.demo.repository.EnterpriseRepository;
 import com.example.demo.repository.PermissionRepository;
 import com.example.demo.repository.RoleRepository;
 import com.example.demo.tenant.TenantContext;
@@ -24,9 +25,19 @@ public class RoleService {
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
+    private final EnterpriseRepository enterpriseRepository;
 
     public RoleResponse create(RoleRequest request) {
         Long enterpriseId = TenantContext.getEnterpriseId();
+        if (enterpriseId == null) {
+            enterpriseId = request.enterpriseId();
+        }
+        if (enterpriseId == null) {
+            throw new IllegalArgumentException("enterpriseId is required");
+        }
+        if (!enterpriseRepository.existsById(enterpriseId)) {
+            throw new NotFoundException("Enterprise not found: " + enterpriseId);
+        }
         if (roleRepository.existsByNameAndEnterpriseId(request.name(), enterpriseId)) {
             throw new ConflictException("Role '" + request.name() + "' already exists in this enterprise");
         }

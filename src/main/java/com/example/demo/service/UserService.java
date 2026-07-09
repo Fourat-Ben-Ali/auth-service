@@ -1,9 +1,12 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AssignRolesRequest;
+import com.example.demo.dto.SetEnabledRequest;
 import com.example.demo.dto.UserRequest;
 import com.example.demo.dto.UserResponse;
+import com.example.demo.dto.UserUpdateRequest;
 import com.example.demo.entity.AppUser;
+import com.example.demo.entity.Enterprise;
 import com.example.demo.entity.Role;
 import com.example.demo.exception.ConflictException;
 import com.example.demo.exception.NotFoundException;
@@ -30,9 +33,8 @@ public class UserService {
 
     @Transactional
     public UserResponse create(UserRequest request) {
-        if (!enterpriseRepository.existsById(request.enterpriseId())) {
-            throw new NotFoundException("Enterprise not found: " + request.enterpriseId());
-        }
+        Enterprise enterprise = enterpriseRepository.findById(request.enterpriseId())
+                .orElseThrow(() -> new NotFoundException("Enterprise not found: " + request.enterpriseId()));
         if (appUserRepository.existsByEmailAndEnterpriseId(request.email(), request.enterpriseId())) {
             throw new ConflictException("Email already in use in this enterprise");
         }
@@ -41,7 +43,7 @@ public class UserService {
         }
 
         String keycloakId = keycloakAdminService.createUser(
-                request.username(), request.email(),
+                enterprise.getSlug(), request.username(), request.email(),
                 request.firstName(), request.lastName(), request.password()
         );
 
@@ -66,24 +68,54 @@ public class UserService {
     }
 
     public UserResponse findById(Long id) {
+        return UserResponse.from(findScoped(id));
+    }
+
+    @Transactional
+    public UserResponse update(Long userId, UserUpdateRequest request) {
+        AppUser user = findScoped(userId);
+        if (!user.getEmail().equals(request.email())
+                && appUserRepository.existsByEmailAndEnterpriseId(request.email(), user.getEnterpriseId())) {
+            throw new ConflictException("Email already in use in this enterprise");
+        }
+        Enterprise enterprise = enterpriseRepository.findById(user.getEnterpriseId())
+                .orElseThrow(() -> new NotFoundException("Enterprise not found: " + user.getEnterpriseId()));
+
+        keycloakAdminService.updateProfile(
+                enterprise.getSlug(), user.getKeycloakId(), request.email(), request.firstName(), request.lastName());
+
+        user.setEmail(request.email());
+        user.setFirstName(request.firstName());
+        user.setLastName(request.lastName());
+        return UserResponse.from(appUserRepository.save(user));
+    }
+
+    @Transactional
+    public UserResponse setEnabled(Long userId, SetEnabledRequest request) {
+        AppUser user = findScoped(userId);
+        Enterprise enterprise = enterpriseRepository.findById(user.getEnterpriseId())
+                .orElseThrow(() -> new NotFoundException("Enterprise not found: " + user.getEnterpriseId()));
+
+        keycloakAdminService.setEnabled(enterprise.getSlug(), user.getKeycloakId(), request.enabled());
+
+        user.setEnabled(request.enabled());
+        return UserResponse.from(appUserRepository.save(user));
+    }
+
+    private AppUser findScoped(Long userId) {
         Long enterpriseId = TenantContext.getEnterpriseId();
         return (enterpriseId != null
-                ? appUserRepository.findByIdAndEnterpriseId(id, enterpriseId)
-                : appUserRepository.findById(id))
-                .map(UserResponse::from)
-                .orElseThrow(() -> new NotFoundException("User not found: " + id));
+                ? appUserRepository.findByIdAndEnterpriseId(userId, enterpriseId)
+                : appUserRepository.findById(userId))
+                .orElseThrow(() -> new NotFoundException("User not found: " + userId));
     }
 
     @Transactional
     public UserResponse assignRoles(Long userId, AssignRolesRequest request) {
-        Long enterpriseId = TenantContext.getEnterpriseId();
-        AppUser user = (enterpriseId != null
-                ? appUserRepository.findByIdAndEnterpriseId(userId, enterpriseId)
-                : appUserRepository.findById(userId))
-                .orElseThrow(() -> new NotFoundException("User not found: " + userId));
+        AppUser user = findScoped(userId);
 
         Set<Role> roles = request.roleIds().stream()
-                .map(rid -> roleRepository.findByIdAndEnterpriseId(rid, enterpriseId)
+                .map(rid -> roleRepository.findByIdAndEnterpriseId(rid, user.getEnterpriseId())
                         .orElseThrow(() -> new NotFoundException("Role not found: " + rid)))
                 .collect(Collectors.toSet());
 

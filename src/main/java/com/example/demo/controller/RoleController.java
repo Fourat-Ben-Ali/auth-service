@@ -20,26 +20,28 @@ public class RoleController {
 
     private final RoleService roleService;
 
+    // Roles are platform-owned — enterprise super admins manage accounts,
+    // not the roles/permissions those accounts can be granted.
     @PostMapping
-    @PreAuthorize("hasAuthority('ROLE_CREATE') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<RoleResponse> create(@Valid @RequestBody RoleRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(roleService.create(request));
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('ROLE_READ') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_READ') or hasRole('SUPER_ADMIN') or hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<List<RoleResponse>> findAll() {
         return ResponseEntity.ok(roleService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_READ') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_READ') or hasRole('SUPER_ADMIN') or hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<RoleResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(roleService.findById(id));
     }
 
     @PostMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('ROLE_ASSIGN_PERM') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_SUPER_ADMIN')")
     public ResponseEntity<RoleResponse> assignPermissions(@PathVariable Long id,
                                                           @Valid @RequestBody AssignPermissionsRequest request) {
         return ResponseEntity.ok(roleService.assignPermissions(id, request));
