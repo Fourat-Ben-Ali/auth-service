@@ -5,12 +5,15 @@ import lombok.RequiredArgsConstructor;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.ProtocolMapperRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Provisions real Keycloak realms — one per enterprise/tenant. Every tenant
@@ -33,7 +36,13 @@ public class KeycloakRealmAdminService {
         keycloak.realms().create(realm);
     }
 
-    public void createDirectAccessClient(String realmName) {
+    /**
+     * Creates the realm's direct-access client and stamps every token it
+     * issues with a hardcoded {@code enterprise_id} claim. This is what lets
+     * downstream services (e.g. file-storage-service) enforce tenant
+     * isolation from the JWT alone, without calling back into auth-service.
+     */
+    public void createDirectAccessClient(String realmName, Long enterpriseId) {
         ClientRepresentation client = new ClientRepresentation();
         client.setClientId(TENANT_CLIENT_ID);
         client.setEnabled(true);
@@ -41,7 +50,26 @@ public class KeycloakRealmAdminService {
         client.setDirectAccessGrantsEnabled(true);
         client.setStandardFlowEnabled(false);
         client.setRedirectUris(List.of("*"));
+        client.setProtocolMappers(List.of(enterpriseIdClaimMapper(enterpriseId)));
         keycloak.realm(realmName).clients().create(client);
+    }
+
+    private ProtocolMapperRepresentation enterpriseIdClaimMapper(Long enterpriseId) {
+        ProtocolMapperRepresentation mapper = new ProtocolMapperRepresentation();
+        mapper.setName("enterprise_id");
+        mapper.setProtocol("openid-connect");
+        mapper.setProtocolMapper("oidc-hardcoded-claim-mapper");
+
+        Map<String, String> config = new HashMap<>();
+        config.put("claim.name", "enterprise_id");
+        config.put("claim.value", String.valueOf(enterpriseId));
+        config.put("jsonType.label", "long");
+        config.put("access.token.claim", "true");
+        config.put("id.token.claim", "true");
+        config.put("userinfo.token.claim", "true");
+        mapper.setConfig(config);
+
+        return mapper;
     }
 
     public void createRealmRole(String realmName, String roleName, String description) {

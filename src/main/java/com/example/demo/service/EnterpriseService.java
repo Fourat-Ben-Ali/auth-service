@@ -39,17 +39,19 @@ public class EnterpriseService {
             throw new ConflictException("A Keycloak realm named '" + request.slug() + "' already exists");
         }
 
+        // Saved first so the client's enterprise_id claim mapper (below) can
+        // carry this row's real, permanent id.
+        Enterprise enterprise = enterpriseRepository.save(
+                Enterprise.builder().name(request.name()).slug(request.slug()).build());
+
         keycloakRealmAdminService.createRealm(request.slug(), request.name());
-        keycloakRealmAdminService.createDirectAccessClient(request.slug());
+        keycloakRealmAdminService.createDirectAccessClient(request.slug(), enterprise.getId());
         keycloakRealmAdminService.createRealmRole(
                 request.slug(), SUPER_ADMIN_ROLE, "Enterprise super administrator");
         String keycloakId = keycloakRealmAdminService.createUserWithRealmRole(
                 request.slug(), request.adminUsername(), request.adminEmail(),
                 request.adminFirstName(), request.adminLastName(), request.adminPassword(),
                 SUPER_ADMIN_ROLE);
-
-        Enterprise enterprise = enterpriseRepository.save(
-                Enterprise.builder().name(request.name()).slug(request.slug()).build());
 
         AppUser admin = AppUser.builder()
                 .keycloakId(keycloakId)
